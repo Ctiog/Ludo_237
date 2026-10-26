@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeu de Ludo Personnalisé</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+body{background:#1e1e2e;color:#cdd6f4;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}
+h1{margin-bottom:15px;color:#f5e0dc;text-shadow:0 2px 4px rgba(0,0,0,.5)}
+.game-container{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;align-items:flex-start;max-width:1200px;width:100%}
+.board-wrapper{box-shadow:0 10px 30px rgba(0,0,0,.5);border-radius:12px;overflow:hidden;background:#000;max-width:100%}
+canvas{display:block;background:#fff;max-width:100%;height:auto}
+.controls-panel{flex:1;min-width:320px;max-width:450px;background:#313244;padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:15px}
+.card{background:#181825;padding:15px;border-radius:8px}
+#statusCard{border-left:6px solid #89b4fa}
+.card h2{font-size:1.1rem;margin-bottom:5px;color:#a6adc8}
+.current-turn{font-size:1.4rem;font-weight:bold;display:flex;align-items:center;gap:10px}
+.color-indicator{width:22px;height:22px;border-radius:50%;display:inline-block;border:2px solid #fff}
+.phase-badge{background:#f9e2af;color:#11111b;font-size:.8rem;padding:4px 10px;border-radius:12px;display:inline-block;margin-top:6px;font-weight:bold}
+.dice-section{display:flex;flex-direction:column;align-items:center;gap:12px}
+.dice{width:60px;height:60px;background:#fff;color:#11111b;font-size:2rem;font-weight:bold;display:flex;justify-content:center;align-items:center;border-radius:10px;box-shadow:inset 0 0 5px rgba(0,0,0,.2),0 4px 8px rgba(0,0,0,.3)}
+.dice.rolling{animation:spin .4s ease-in-out}
+@keyframes spin{0%{transform:rotate(0) scale(.8)}50%{transform:rotate(180deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
+.dice-pool{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.dice-chip{background:#89b4fa;color:#11111b;font-weight:bold;padding:6px 12px;border-radius:15px;font-size:.9rem}
+.dice-chip.active{background:#a6e3a1;border:2px solid #fff;box-shadow:0 0 8px #a6e3a1}
+.dice-chip.used{background:#585b70;color:#a6adc8;text-decoration:line-through}
+button{background:#89b4fa;color:#11111b;border:none;padding:12px 24px;font-size:1rem;font-weight:bold;border-radius:8px;cursor:pointer;width:100%}
+button:hover:not(:disabled){background:#b4befe}
+button:disabled{background:#585b70;color:#7f849c;cursor:not-allowed}
+.jail-section h3{font-size:1rem;margin-bottom:10px;color:#f38ba8}
+.jail-list{list-style:none;font-size:.9rem}
+.jail-item{background:#313244;padding:6px 10px;border-radius:6px;margin-bottom:6px}
+.log-section{background:#181825;padding:12px;border-radius:8px;height:200px;overflow-y:auto;font-family:monospace;font-size:.85rem}
+.log-entry{margin-bottom:4px;border-bottom:1px solid #313244;padding-bottom:2px}
+#winModal,#setupModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);justify-content:center;align-items:center;z-index:10}
+#winBox{background:#313244;padding:40px 50px;border-radius:16px;text-align:center;border:6px solid #9b59b6;box-shadow:0 10px 40px rgba(0,0,0,.6);max-width:90%}
+#winBox h2{font-size:2.2rem;margin-bottom:10px}
+#winBox p{font-size:1.3rem;margin-bottom:20px}
+#setupBox{background:#313244;padding:26px 30px;border-radius:16px;border:4px solid #89b4fa;max-width:480px;width:92%;max-height:94vh;overflow-y:auto}
+#setupBox h2{margin-bottom:12px;text-align:center}
+#setupBox h3{margin:14px 0 8px;color:#a6adc8;font-size:1rem}
+.opt{display:flex;gap:10px;align-items:flex-start;background:#181825;padding:10px 12px;border-radius:8px;margin-bottom:8px;cursor:pointer;font-size:.92rem}
+.opt input{margin-top:4px}
+.name-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.name-row input{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #585b70;background:#181825;color:#cdd6f4;font-size:1rem}
+.warn{font-size:.85rem;color:#f9e2af;margin:12px 0}
+</style>
+</head>
+<body>
+<h1>🎮 Jeu de Ludo Personnalisé</h1>
+<div class="game-container">
+  <div class="board-wrapper"><canvas id="ludoBoard" width="600" height="600"></canvas></div>
+  <div class="controls-panel">
+    <div class="card" id="statusCard">
+      <h2>Tour actuel</h2>
+      <div class="current-turn"><span class="color-indicator" id="turnIndicator"></span><span id="turnText">Rouge</span></div>
+      <div id="phaseBadge" class="phase-badge"></div>
+      <div id="versionBadge" class="phase-badge" style="background:#cba6f7;display:none"></div>
+      <div id="meBadge" class="phase-badge" style="background:#a6e3a1;display:none"></div>
+    </div>
+    <div class="card dice-section">
+      <div class="dice" id="diceValue">-</div>
+      <div class="dice-pool" id="dicePool"></div>
+      <button id="rollBtn" onclick="rollDice()" disabled>Lancer le dé</button>
+    </div>
+    <div class="card jail-section">
+      <h3>🚨 Prisonniers retenus</h3>
+      <ul class="jail-list" id="jailList"><li>Aucun prisonnier</li></ul>
+    </div>
+    <div class="log-section" id="gameLog"><div class="log-entry">> Choisissez la version et les noms des joueurs pour commencer.</div></div>
+  </div>
+</div>
+
+<div id="setupModal" style="display:flex">
+  <div id="setupBox">
+    <h2>🎲 Nouvelle partie</h2>
+    <h3>Mode de jeu</h3>
+    <label class="opt"><input type="radio" name="mode" value="local" checked onchange="modeChanged()"><span><b>Local</b> : tout le monde sur le même écran</span></label>
+    <label class="opt"><input type="radio" name="mode" value="host" onchange="modeChanged()"><span><b>En ligne : créer une salle</b> (vous recevez un code à donner à vos amis)</span></label>
+    <label class="opt"><input type="radio" name="mode" value="join" onchange="modeChanged()"><span><b>En ligne : rejoindre une salle</b></span></label>
+    <div id="joinPart" style="display:none">
+      <h3>Rejoindre</h3>
+      <div class="name-row"><input id="joinCode" maxlength="8" placeholder="Code de la salle"></div>
+      <div class="name-row"><input id="joinName" maxlength="15" placeholder="Votre nom (facultatif)"></div>
+    </div>
+    <div id="configPart">
+      <h3>Version du jeu (à choisir ensemble)</h3>
+      <label class="opt"><input type="radio" name="ver" value="1" checked><span><b>Version 1 : classique</b><br>Manger un adversaire est facultatif.</span></label>
+      <label class="opt"><input type="radio" name="ver" value="2"><span><b>Version 2 : capture obligatoire</b><br>Si les dés permettent de manger un adversaire, le joueur est obligé de le faire (sauf si cela l'oblige à abandonner un dé).</span></label>
+      <h3>Joueurs (cochez ceux qui jouent) et noms facultatifs</h3><p style="font-size:.85rem;color:#a6adc8;margin-bottom:8px">À 2 : couleurs opposées (Rouge–Jaune ou Vert–Bleu). À 3 ou 4 : au choix.</p><h3 style="display:none"></h3>
+    <div class="name-row"><input type="checkbox" id="act_RED" checked><span class="color-indicator" style="background:#e74c3c"></span><input id="name_RED" maxlength="15" placeholder="Rouge"></div>
+    <div class="name-row"><input type="checkbox" id="act_GREEN" checked><span class="color-indicator" style="background:#2ecc71"></span><input id="name_GREEN" maxlength="15" placeholder="Vert"></div>
+    <div class="name-row"><input type="checkbox" id="act_YELLOW" checked><span class="color-indicator" style="background:#f1c40f"></span><input id="name_YELLOW" maxlength="15" placeholder="Jaune"></div>
+    <div class="name-row"><input type="checkbox" id="act_BLUE" checked><span class="color-indicator" style="background:#3498db"></span><input id="name_BLUE" maxlength="15" placeholder="Bleu"></div>
+      <p class="warn">⚠️ Une fois la partie commencée, la version ne peut plus être changée jusqu'à la fin.</p>
+    </div>
+    <button id="setupBtn" onclick="startGame()">Commencer la partie</button>
+    <div id="lobby" class="warn" style="display:none"></div>
+  </div>
+</div>
+
+<div id="winModal">
+  <div id="winBox">
+    <h2>🎉 Félicitations ! 🎉</h2>
+    <p id="winText"></p>
+    <button onclick="location.reload()">Nouvelle partie</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script>
+const canvas = document.getElementById('ludoBoard');
+const ctx = canvas.getContext('2d');
+const size = 600, grid = size / 15;
+
+const PLAYERS = ['RED', 'GREEN', 'YELLOW', 'BLUE'];
+const NAMES = { RED: 'Rouge', GREEN: 'Vert', YELLOW: 'Jaune', BLUE: 'Bleu' };
+const PCOL = { RED: '#e74c3c', GREEN: '#2ecc71', YELLOW: '#f1c40f', BLUE: '#3498db' };
+const PURPLE = '#9b59b6', BORDER = '#2c3e50';
+
+// Positions d'un pion : -1 = base/prison, 0..50 = boucle (51 cases),
+// 51..55 = couloir final (5 cases), 56 = arrivé au centre.
+const LAST_LOOP = 50, FINAL = 55, DONE = 56;
+
+let currentPlayerIndex = 0, isRolling = false, globalOpeningPhase = true, gameOver = false;
+let playerHasUnlockedSix = { RED: false, GREEN: false, YELLOW: false, BLUE: false };
+let currentAttemptInTurn = 0, accumulatedDice = [], currentDiceIndex = 0, isPilotingPhase = false;
+let capturedPawnsThisTurn = [];
+let gameStarted = false, version = 1, simulating = false;
+let ACTIVE = PLAYERS.slice();
+const customName = {};
+const net = { mode: 'local', peer: null, conn: null, conns: [], myColor: null, code: '' };
+const isOnline = () => net.mode !== 'local';
+const isHost = () => net.mode === 'host';
+const esc = t => t.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+const pawns = {};
+PLAYERS.forEach(c => pawns[c] = [0, 1, 2, 3].map(id => ({ id, pos: -1, inJailOf: null })));
+
+const MAIN_PATH = [
+  [1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],
+  [8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],
+  [14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],
+  [6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6]
+];
+const START_INDEX = { RED: 0, GREEN: 13, YELLOW: 26, BLUE: 39 };
+const HOME_PATHS = {
+  RED:    [[1,7],[2,7],[3,7],[4,7],[5,7]],
+  GREEN:  [[7,1],[7,2],[7,3],[7,4],[7,5]],
+  YELLOW: [[13,7],[12,7],[11,7],[10,7],[9,7]],
+  BLUE:   [[7,13],[7,12],[7,11],[7,10],[7,9]]
+};
+const ORIGIN = { RED: [0,0], GREEN: [9,0], YELLOW: [9,9], BLUE: [0,9] };
+const othersOf = c => PLAYERS.filter(x => x !== c);
+const colorFor = c => PCOL[c];
+// L'ouverture se termine quand un pion franchit l'entrée de la base suivante (occupée ou non) : toujours 13 cases après le départ
+const entryThreshold = () => 13;
+
+// Case (grille) + clé de regroupement d'un pion
+function cellOf(color, p) {
+  if (p.inJailOf) {
+    const a = p.inJailOf, [ox, oy] = ORIGIN[a];
+    return [ox + 1 + othersOf(a).indexOf(color), oy + 4, 'J_' + a + '_' + color];
+  }
+  if (p.pos === -1) {
+    const [ox, oy] = ORIGIN[color];
+    return [ox + 2 + (p.id % 2), oy + 2 + (p.id >> 1), 'B_' + color + p.id];
+  }
+  if (p.pos <= LAST_LOOP) {
+    const g = (START_INDEX[color] + p.pos) % 52;
+    return [MAIN_PATH[g][0], MAIN_PATH[g][1], 'M_' + g];
+  }
+  const h = HOME_PATHS[color][p.pos - 51];
+  return [h[0], h[1], 'H_' + color + p.pos];
+}
+function getPawnCoordinates(color, p) {
+  const [gx, gy] = cellOf(color, p);
+  return { x: (gx + .5) * grid, y: (gy + .5) * grid };
+}
+function pawnsAt(g) {
+  const r = [];
+  PLAYERS.forEach(c => pawns[c].forEach(p => {
+    if (!p.inJailOf && p.pos >= 0 && p.pos <= LAST_LOOP && (START_INDEX[c] + p.pos) % 52 === g) r.push({ c, p });
+  }));
+  return r;
+}
+const finishedCount = c => pawns[c].filter(p => p.pos === DONE).length;
+
+// ---------- Dessin ----------
+function cell(gx, gy, fill) {
+  ctx.fillStyle = fill; ctx.fillRect(gx * grid, gy * grid, grid, grid);
+  ctx.strokeStyle = BORDER; ctx.lineWidth = 1; ctx.strokeRect(gx * grid, gy * grid, grid, grid);
+}
+function drawBoard() {
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+
+  PLAYERS.forEach(c => {
+    const [ox, oy] = ORIGIN[c];
+    ctx.fillStyle = colorFor(c); ctx.fillRect(ox * grid, oy * grid, 6 * grid, 6 * grid);
+    ctx.fillStyle = '#fff'; ctx.fillRect((ox + 1) * grid, (oy + 1) * grid, 4 * grid, 4 * grid);
+    for (let id = 0; id < 4; id++) cell(ox + 2 + (id % 2), oy + 2 + (id >> 1), '#e8e8e8');
+    // 3 cases d'extension pour les prisonniers (une par couleur adverse)
+    othersOf(c).forEach((v, s) => {
+      if (!ACTIVE.includes(c) || !ACTIVE.includes(v)) return;
+      const x = (ox + 1 + s) * grid, y = (oy + 4) * grid;
+      ctx.fillStyle = PCOL[v] + '33'; ctx.fillRect(x, y, grid, grid);
+      ctx.setLineDash([4, 3]); ctx.strokeStyle = PCOL[v]; ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, grid - 4, grid - 4); ctx.setLineDash([]);
+    });
+    if (customName[c] && ACTIVE.includes(c)) drawBaseName(c);
+  });
+
+  const starts = Object.fromEntries(PLAYERS.map(c => [START_INDEX[c], PCOL[c] + '55']));
+  MAIN_PATH.forEach(([gx, gy], i) => {
+    cell(gx, gy, '#fff');
+    if (starts[i]) { ctx.fillStyle = starts[i]; ctx.fillRect(gx * grid, gy * grid, grid, grid); ctx.strokeRect(gx * grid, gy * grid, grid, grid); }
+  });
+  PLAYERS.forEach(c => HOME_PATHS[c].forEach(([gx, gy]) => cell(gx, gy, colorFor(c))));
+
+  // Centre lila + couronne + pions arrivés
+  ctx.fillStyle = PURPLE; ctx.fillRect(6 * grid, 6 * grid, 3 * grid, 3 * grid);
+  ctx.strokeStyle = BORDER; ctx.strokeRect(6 * grid, 6 * grid, 3 * grid, 3 * grid);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '30px serif'; ctx.fillStyle = '#fff'; ctx.fillText('👑', 7.5 * grid, 7.5 * grid + 2);
+  const spots = { RED: [6.5, 7.5], GREEN: [7.5, 6.5], YELLOW: [8.5, 7.5], BLUE: [7.5, 8.5] };
+  PLAYERS.forEach(c => {
+    const n = finishedCount(c);
+    if (!n) return;
+    const [sx, sy] = spots[c];
+    ctx.beginPath(); ctx.arc(sx * grid, sy * grid, grid * .3, 0, Math.PI * 2);
+    ctx.fillStyle = PCOL[c]; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#000'; ctx.font = 'bold 16px sans-serif'; ctx.fillText(n, sx * grid, sy * grid + 1);
+  });
+
+  drawPawns();
+}
+
+function drawBaseName(c) {
+  const [ox, oy] = ORIGIN[c], cx = (ox + 3) * grid, cy = (oy + (oy === 0 ? .5 : 5.5)) * grid;
+  let fs = 20;
+  ctx.font = `bold ${fs}px sans-serif`;
+  const w = ctx.measureText(NAMES[c]).width;
+  if (w > 220) { fs = Math.floor(fs * 220 / w); ctx.font = `bold ${fs}px sans-serif`; }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(NAMES[c], cx, cy);
+  ctx.fillStyle = '#fff'; ctx.fillText(NAMES[c], cx, cy);
+}
+
+function movablePawns() {
+  if (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor) return new Set();
+  if (!isPilotingPhase || gameOver || currentDiceIndex >= accumulatedDice.length) return new Set();
+  return new Set(getAllowedMoves(ACTIVE[currentPlayerIndex]).map(m => m.pawn));
+}
+
+function drawPawns() {
+  const hl = movablePawns(), groups = {};
+  ACTIVE.forEach(c => pawns[c].forEach(p => {
+    if (p.pos === DONE) return;
+    const [gx, gy, k] = cellOf(c, p);
+    (groups[k] = groups[k] || []).push({ c, p, gx, gy });
+  }));
+  Object.entries(groups).forEach(([k, g]) => {
+    const n = g.length, barrier = k[0] === 'M' && n >= 2;
+    g.forEach((it, i) => {
+      const x = (it.gx + .5) * grid + i * 3, y = (it.gy + .5) * grid - i * 3;
+      ctx.beginPath(); ctx.arc(x, y, grid * .38, 0, Math.PI * 2);
+      ctx.fillStyle = PCOL[it.c]; ctx.fill();
+      ctx.lineWidth = barrier ? 5 : 2; ctx.strokeStyle = barrier ? '#000' : '#fff'; ctx.stroke();
+      if (hl.has(it.p)) {
+        ctx.beginPath(); ctx.arc(x, y, grid * .5, 0, Math.PI * 2);
+        ctx.setLineDash([5, 3]); ctx.lineWidth = 3; ctx.strokeStyle = '#ffeb3b'; ctx.stroke(); ctx.setLineDash([]);
+      }
+      if (i === n - 1) {
+        if (n >= 2) {
+          ctx.font = 'bold 17px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeText(n, x, y + 1);
+          ctx.fillStyle = '#fff'; ctx.fillText(n, x, y + 1);
+        } else if (it.p.inJailOf) {
+          ctx.beginPath(); ctx.arc(x, y, grid * .12, 0, Math.PI * 2); ctx.fillStyle = '#000'; ctx.fill();
+        }
+      }
+    });
+  });
+}
+
+// ---------- Interface ----------
+function updateUI() {
+  const pc = ACTIVE[currentPlayerIndex];
+  document.getElementById('turnIndicator').style.backgroundColor = PCOL[pc];
+  document.getElementById('turnText').innerText = NAMES[pc];
+  document.getElementById('statusCard').style.borderLeftColor = PCOL[pc];
+  const badge = document.getElementById('phaseBadge');
+  if (globalOpeningPhase) {
+    badge.style.display = 'inline-block';
+    badge.innerText = playerHasUnlockedSix[pc] ? "Phase d'ouverture : 1 seul lancer (déjà fait un 6)" : "Phase d'ouverture : 2 lancers autorisés";
+  } else badge.style.display = 'none';
+  const vb = document.getElementById('versionBadge');
+  vb.style.display = gameStarted ? 'inline-block' : 'none';
+  vb.innerText = version === 2 ? 'Version 2 : capture obligatoire' : 'Version 1 : classique';
+  const mb = document.getElementById('meBadge');
+  mb.style.display = gameStarted && isOnline() ? 'inline-block' : 'none';
+  if (net.myColor) mb.innerText = 'Vous jouez : ' + NAMES[net.myColor];
+  updateDicePoolUI(); updateJailUI(); drawBoard();
+}
+function updateDicePoolUI() {
+  const pool = document.getElementById('dicePool');
+  pool.innerHTML = '';
+  accumulatedDice.forEach((val, idx) => {
+    const chip = document.createElement('div');
+    let s = '';
+    if (isPilotingPhase) s = idx < currentDiceIndex ? ' used' : (idx === currentDiceIndex ? ' active' : '');
+    chip.className = 'dice-chip' + s;
+    chip.innerText = `Dé #${idx + 1}: ${val}`;
+    pool.appendChild(chip);
+  });
+}
+function updateJailUI() {
+  const lines = [];
+  PLAYERS.forEach(a => {
+    const by = {};
+    PLAYERS.forEach(v => pawns[v].forEach(p => { if (p.inJailOf === a) by[v] = (by[v] || 0) + 1; }));
+    const t = Object.entries(by).map(([v, n]) => `${n} ${esc(NAMES[v])}`).join(', ');
+    if (t) lines.push(`<li class="jail-item"><b>${esc(NAMES[a])}</b> retient : ${t}</li>`);
+  });
+  document.getElementById('jailList').innerHTML = lines.join('') || '<li>Aucun prisonnier</li>';
+}
+function log(msg) {
+  if (simulating) return;
+  const box = document.getElementById('gameLog');
+  const e = document.createElement('div');
+  e.className = 'log-entry'; e.innerText = '> ' + msg;
+  box.insertBefore(e, box.firstChild);
+}
+
+// ---------- Dés ----------
+function updateRollBtn() {
+  document.getElementById('rollBtn').disabled = !gameStarted || gameOver || (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor);
+}
+function rollDice() {
+  if (!gameStarted || isRolling || isPilotingPhase || gameOver) return;
+  if (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor) return;
+  if (isOnline() && !isHost()) { net.conn.send({ t: 'roll' }); document.getElementById('rollBtn').disabled = true; return; }
+  hostRoll();
+}
+function hostRoll() {
+  const r = Math.floor(Math.random() * 6) + 1;
+  if (isHost()) broadcast({ t: 'dice', r });
+  startRoll(r);
+}
+function startRoll(r) {
+  isRolling = true;
+  const diceEl = document.getElementById('diceValue');
+  document.getElementById('rollBtn').disabled = true; diceEl.classList.add('rolling');
+  setTimeout(() => {
+    diceEl.innerText = r; diceEl.classList.remove('rolling'); isRolling = false;
+    const pc = ACTIVE[currentPlayerIndex];
+    log(`${NAMES[pc]} a obtenu un ${r}.`);
+    accumulatedDice.push(r);
+    if (r === 6) {
+      playerHasUnlockedSix[pc] = true;
+      log(`C'est un 6 ! Relancez le dé.`);
+      updateUI(); updateRollBtn();
+    } else if (globalOpeningPhase && !playerHasUnlockedSix[pc] && currentAttemptInTurn === 0) {
+      currentAttemptInTurn = 1;
+      log(`2ème lancer de la phase d'ouverture pour ${NAMES[pc]}.`);
+      updateUI(); updateRollBtn();
+    } else startPilotingPhase();
+  }, 350);
+}
+function startPilotingPhase() {
+  isPilotingPhase = true; currentDiceIndex = 0; capturedPawnsThisTurn = [];
+  processCurrentDiceInPool();
+}
+function processCurrentDiceInPool() {
+  if (gameOver) return;
+  if (currentDiceIndex >= accumulatedDice.length) { finishTurn(); return; }
+  const pc = ACTIVE[currentPlayerIndex], d = accumulatedDice[currentDiceIndex];
+  updateUI();
+  const raw = getValidMoves(pc, d);
+  if (raw.length === 0) {
+    log(`Aucun coup possible pour le dé [${d}] de ${NAMES[pc]}.`);
+    setTimeout(() => { currentDiceIndex++; processCurrentDiceInPool(); }, 1000);
+  } else {
+    if (getAllowedMoves(pc).length < raw.length)
+      log(`⚠️ Certains coups sont interdits : ${version === 2 ? 'capture obligatoire, et ' : ''}un dé ne peut être abandonné que si aucun autre choix n'est possible.`);
+    log(`Pilotez un pion avec le dé [${d}].`);
+  }
+}
+
+// ---------- Règles de déplacement ----------
+function getValidMoves(color, steps) {
+  const moves = [];
+  pawns[color].forEach(p => {
+    if (p.pos === DONE || capturedPawnsThisTurn.includes(p.id)) return;
+    if (p.inJailOf) { if (steps === 6) moves.push({ pawn: p, type: 'RELEASE_JAIL' }); return; }
+    if (p.pos === -1) {
+      if (steps === 6 && !isBlockedByEnemyBarrier(START_INDEX[color], color)) moves.push({ pawn: p, type: 'EXIT_BASE' });
+      return;
+    }
+    const t = p.pos + steps;
+    if (t <= FINAL && canPawnMovePath(color, p.pos, steps)) moves.push({ pawn: p, type: 'MOVE', targetPos: t });
+  });
+  return moves;
+}
+function isBlockedByEnemyBarrier(g, myColor) {
+  const at = pawnsAt(g);
+  return at.length >= 2 && at[0].c !== myColor;
+}
+// Une barrière bloque le passage de tous (adversaires ET pions de la même couleur).
+// Un pion de la même couleur peut seulement s'y poser (la barrière monte de niveau).
+function canPawnMovePath(color, startPos, steps) {
+  for (let i = 1; i <= steps; i++) {
+    const n = startPos + i;
+    if (n > LAST_LOOP) break;
+    const at = pawnsAt((START_INDEX[color] + n) % 52);
+    if (at.length >= 2 && !(i === steps && at[0].c === color)) return false;
+  }
+  return true;
+}
+
+canvas.addEventListener('click', e => {
+  if (!isPilotingPhase || isRolling || gameOver || currentDiceIndex >= accumulatedDice.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.clientX - rect.left) * canvas.width / rect.width;
+  const cy = (e.clientY - rect.top) * canvas.height / rect.height;
+  const pc = ACTIVE[currentPlayerIndex];
+  if (isOnline() && pc !== net.myColor) return;
+  let sel = null, best = 999;
+  getAllowedMoves(pc).forEach(m => {
+    const c = getPawnCoordinates(pc, m.pawn), d = Math.hypot(c.x - cx, c.y - cy);
+    if (d < grid && d < best) { best = d; sel = m; }
+  });
+  if (sel) sendMove(pc, sel);
+});
+
+// Applique un coup (sans dessin). Renvoie true si une capture a eu lieu.
+function applyMove(color, move) {
+  const p = move.pawn;
+  let cap = false;
+  if (move.type === 'RELEASE_JAIL') {
+    p.inJailOf = null; p.pos = -1;
+    log(`${NAMES[color]} a libéré un pion de prison (il retourne dans sa base).`);
+  } else {
+    if (move.type === 'EXIT_BASE') {
+      p.pos = 0; log(`${NAMES[color]} a sorti un pion de sa base.`);
+    } else {
+      p.pos = move.targetPos;
+      if (globalOpeningPhase && p.pos >= entryThreshold(color)) {
+        globalOpeningPhase = false;
+        log(`🚀 Un pion a franchi l'entrée de l'adversaire : la phase d'ouverture est terminée pour tout le monde.`);
+      }
+      if (p.pos === FINAL) { p.pos = DONE; log(`🏁 ${NAMES[color]} a amené un pion au centre (${finishedCount(color)}/4).`); }
+    }
+    if (p.pos >= 0 && p.pos <= LAST_LOOP && checkCapture(color, (START_INDEX[color] + p.pos) % 52)) {
+      capturedPawnsThisTurn.push(p.id); cap = true;
+      log(`🔒 Ce pion a mangé et est verrouillé pour la suite de cette série de dés.`);
+    }
+  }
+  return cap;
+}
+
+function executeMove(color, move) {
+  applyMove(color, move);
+  drawBoard();
+  if (finishedCount(color) === 4) { endGame(color); return; }
+  currentDiceIndex++;
+  processCurrentDiceInPool();
+}
+
+// ---- Coups autorisés : on doit jouer le maximum de dés (et, en version 2, manger si possible)
+function snapshot() {
+  return { p: PLAYERS.map(c => pawns[c].map(x => [x.pos, x.inJailOf])), cap: capturedPawnsThisTurn.slice(), open: globalOpeningPhase };
+}
+function restore(s) {
+  PLAYERS.forEach((c, i) => pawns[c].forEach((x, j) => { x.pos = s.p[i][j][0]; x.inJailOf = s.p[i][j][1]; }));
+  capturedPawnsThisTurn = s.cap.slice(); globalOpeningPhase = s.open;
+}
+// score = nombre de dés joués × 10 + (capture possible ? 1 : 0) : les dés jouent d'abord, la capture ensuite
+function combine(cap, sub) {
+  return (1 + Math.floor(sub / 10)) * 10 + (version === 2 && (cap || sub % 10 === 1) ? 1 : 0);
+}
+function moveKey(m) {
+  return m.type + (m.type === 'MOVE' ? m.pawn.pos : m.type === 'RELEASE_JAIL' ? m.pawn.inJailOf : '');
+}
+function bestScore(color, idx) {
+  if (idx >= accumulatedDice.length) return 0;
+  const seen = new Set();
+  const moves = getValidMoves(color, accumulatedDice[idx]).filter(m => { const k = moveKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+  if (!moves.length) return bestScore(color, idx + 1);
+  let best = -1;
+  moves.forEach(m => {
+    const s = snapshot(), cap = applyMove(color, m), sub = bestScore(color, idx + 1);
+    restore(s);
+    best = Math.max(best, combine(cap, sub));
+  });
+  return best;
+}
+function getAllowedMoves(color) {
+  if (currentDiceIndex >= accumulatedDice.length) return [];
+  const raw = getValidMoves(color, accumulatedDice[currentDiceIndex]);
+  if (raw.length < 2) return raw;
+  let scored;
+  simulating = true;
+  try {
+    scored = raw.map(m => {
+      const s = snapshot(), cap = applyMove(color, m), sub = bestScore(color, currentDiceIndex + 1);
+      restore(s);
+      return { m, sc: combine(cap, sub) };
+    });
+  } finally { simulating = false; }
+  const mx = Math.max(...scored.map(x => x.sc));
+  return scored.filter(x => x.sc === mx).map(x => x.m);
+}
+
+// ---------- Démarrage et jeu en ligne (PeerJS, connexion directe entre joueurs) ----------
+function modeChanged() {
+  const m = document.querySelector('input[name=mode]:checked').value;
+  document.getElementById('joinPart').style.display = m === 'join' ? 'block' : 'none';
+  document.getElementById('configPart').style.display = m === 'join' ? 'none' : 'block';
+  document.getElementById('setupBtn').innerText = m === 'local' ? 'Commencer la partie' : m === 'host' ? 'Créer la salle' : 'Rejoindre';
+}
+function startGame() {
+  net.mode = document.querySelector('input[name=mode]:checked').value;
+  if (net.mode !== 'local' && typeof Peer === 'undefined') { alert("La bibliothèque de jeu en ligne n'a pas pu se charger (connexion internet ?)."); return; }
+  if (net.mode === 'join') return joinRoom();
+  version = +document.querySelector('input[name=ver]:checked').value;
+  ACTIVE = PLAYERS.filter(c => document.getElementById('act_' + c).checked);
+  if (ACTIVE.length < 2) { alert('Il faut au moins 2 joueurs.'); return; }
+  if (ACTIVE.length === 2 && PLAYERS.indexOf(ACTIVE[1]) - PLAYERS.indexOf(ACTIVE[0]) !== 2) { alert('À 2 joueurs, seules les couleurs opposées sont possibles : Rouge–Jaune ou Vert–Bleu.'); return; }
+  ACTIVE.forEach(c => { const v = document.getElementById('name_' + c).value.trim(); if (v) { NAMES[c] = v; customName[c] = true; } });
+  if (net.mode === 'host') return hostRoom();
+  beginGame();
+}
+function beginGame() {
+  gameStarted = true; currentPlayerIndex = 0;
+  document.getElementById('setupModal').style.display = 'none';
+  document.getElementById('gameLog').innerHTML = '';
+  log(`La partie commence (${version === 2 ? 'version 2 : capture obligatoire' : 'version 1 : classique'}) ! ${NAMES[ACTIVE[0]]} débute.`);
+  updateRollBtn(); updateUI();
+}
+function broadcast(m) { net.conns.forEach(o => { try { o.conn.send(m); } catch (e) {} }); }
+function lobbyMsg(h) { const l = document.getElementById('lobby'); l.style.display = 'block'; l.innerHTML = h; }
+
+function hostRoom() {
+  net.myColor = ACTIVE[0]; net.conns = [];
+  net.code = Array.from({ length: 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+  document.getElementById('setupBtn').disabled = true;
+  lobbyMsg('Connexion au serveur…');
+  net.peer = new Peer('ludo-' + net.code);
+  net.peer.on('open', showLobby);
+  net.peer.on('error', e => { lobbyMsg('Erreur réseau : ' + e.type + ' (réessayez)'); document.getElementById('setupBtn').disabled = false; });
+  net.peer.on('connection', conn => {
+    conn.on('data', m => onHostMsg(conn, m));
+    conn.on('close', () => { const o = net.conns.find(x => x.conn === conn); if (o) log(`⚠️ ${NAMES[o.color]} s'est déconnecté.`); });
+  });
+}
+function showLobby() {
+  const taken = net.conns.map(x => x.color);
+  lobbyMsg(`<h3>Code de la salle : <span style="font-size:1.6rem;letter-spacing:3px;color:#a6e3a1">${net.code}</span></h3>
+    <p>Donnez ce code à vos amis (ils ouvrent le même lien du jeu et choisissent « rejoindre »).<br>Places : ${ACTIVE.slice(1).map(c => `${esc(NAMES[c])} ${taken.includes(c) ? '✅' : '⏳'}`).join(' · ')}</p>
+    <p>La partie démarre automatiquement quand tout le monde est connecté.</p>`);
+}
+function onHostMsg(conn, m) {
+  const o = net.conns.find(x => x.conn === conn);
+  if (m.t === 'join') {
+    if (gameStarted || o) return;
+    const taken = net.conns.map(x => x.color);
+    const seat = ACTIVE.slice(1).find(c => !taken.includes(c));
+    if (!seat) { conn.send({ t: 'full' }); return; }
+    if (m.name) { NAMES[seat] = String(m.name).slice(0, 15); customName[seat] = true; }
+    net.conns.push({ conn, color: seat });
+    conn.send({ t: 'seat', color: seat });
+    showLobby();
+    if (net.conns.length === ACTIVE.length - 1) {
+      broadcast({ t: 'start', active: ACTIVE, names: NAMES, custom: customName, version });
+      beginGame();
+    }
+  } else if (o && gameStarted && o.color === ACTIVE[currentPlayerIndex]) {
+    if (m.t === 'roll' && !isRolling && !isPilotingPhase && !gameOver) hostRoll();
+    else if (m.t === 'mv' && isPilotingPhase && getAllowedMoves(o.color).some(x => x.pawn.id === m.pid && x.type === m.mt)) {
+      broadcast(m); applyNetAction(m);
+    }
+  }
+}
+function joinRoom() {
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (!code) { alert('Entrez le code de la salle.'); return; }
+  const btn = document.getElementById('setupBtn');
+  btn.disabled = true; lobbyMsg('Connexion…');
+  net.peer = new Peer();
+  net.peer.on('open', () => {
+    const conn = net.conn = net.peer.connect('ludo-' + code, { reliable: true });
+    conn.on('open', () => conn.send({ t: 'join', name: document.getElementById('joinName').value.trim() }));
+    conn.on('data', onGuestMsg);
+    conn.on('close', () => log("⚠️ Connexion perdue avec l'hôte."));
+  });
+  net.peer.on('error', e => { lobbyMsg(e.type === 'peer-unavailable' ? 'Salle introuvable : vérifiez le code.' : 'Erreur réseau : ' + e.type); btn.disabled = false; });
+}
+function onGuestMsg(m) {
+  if (m.t === 'seat') { net.myColor = m.color; lobbyMsg(`Connecté ! Vous jouez ${esc(NAMES[m.color])}. En attente des autres joueurs…`); }
+  else if (m.t === 'full') { lobbyMsg('Cette salle est complète.'); document.getElementById('setupBtn').disabled = false; }
+  else if (m.t === 'start') {
+    ACTIVE = m.active; Object.assign(NAMES, m.names); Object.assign(customName, m.custom); version = m.version;
+    beginGame();
+  } else applyNetAction(m);
+}
+function sendMove(pc, sel) {
+  if (!isOnline()) { executeMove(pc, sel); return; }
+  const m = { t: 'mv', pid: sel.pawn.id, mt: sel.type };
+  if (isHost()) { broadcast(m); executeMove(pc, sel); } else net.conn.send(m);
+}
+// Chaque appareil applique les mêmes actions dans le même ordre : les parties restent identiques.
+function applyNetAction(m) {
+  m.n = (m.n || 0) + 1;
+  if (m.n > 100) return;
+  if (m.t === 'dice') {
+    if (isRolling || isPilotingPhase) { setTimeout(() => applyNetAction(m), 100); return; }
+    startRoll(m.r);
+  } else if (m.t === 'mv') {
+    if (!isPilotingPhase || isRolling || currentDiceIndex >= accumulatedDice.length) { setTimeout(() => applyNetAction(m), 100); return; }
+    const pc = ACTIVE[currentPlayerIndex];
+    const mv = getAllowedMoves(pc).find(x => x.pawn.id === m.pid && x.type === m.mt);
+    if (mv) executeMove(pc, mv);
+  }
+}
+
+function checkCapture(attacker, g) {
+  let hit = false;
+  pawnsAt(g).forEach(({ c, p }) => {
+    if (c !== attacker) {
+      p.pos = -1; p.inJailOf = attacker; hit = true;
+      log(`⚔️ ${NAMES[attacker]} a capturé un pion de ${NAMES[c]} (envoyé en prison).`);
+    }
+  });
+  return hit;
+}
+
+function finishTurn() {
+  currentAttemptInTurn = 0; accumulatedDice = []; isPilotingPhase = false; capturedPawnsThisTurn = [];
+  currentPlayerIndex = (currentPlayerIndex + 1) % ACTIVE.length;
+  updateRollBtn();
+  document.getElementById('diceValue').innerText = '-';
+  log(`C'est au tour de ${NAMES[ACTIVE[currentPlayerIndex]]}.`);
+  updateUI();
+}
+
+function endGame(color) {
+  gameOver = true;
+  document.getElementById('rollBtn').disabled = true;
+  log(`🏆 ${NAMES[color]} a gagné la partie !`);
+  document.getElementById('winText').innerHTML = `Le joueur <b style="color:${PCOL[color]}">${esc(NAMES[color])}</b> remporte la partie !`;
+  document.getElementById('winModal').style.display = 'flex';
+  updateUI();
+}
+
+updateUI();
+</script>
+</body>
+</html>
