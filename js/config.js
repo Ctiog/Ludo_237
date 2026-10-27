@@ -31,8 +31,9 @@ function sendStat(etat, gagnant) {
 }
 let ACTIVE = PLAYERS.slice();
 let hlCache = new Set(), dieShown = null, rollSent = false;
+let busy = false, skipPending = false, turnSeconds = 0, turnDeadline = 0, turnKey = '', anims = [];
 const customName = {};
-const net = { mode: 'local', peer: null, conn: null, conns: [], myColor: null, code: '' };
+const net = { mode: 'local', peer: null, conn: null, conns: [], myColor: null, code: '', spec: false, reconnecting: false };
 const isOnline = () => net.mode !== 'local';
 const isHost = () => net.mode === 'host';
 const esc = t => t.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -88,4 +89,13 @@ function pawnsAt(g) {
   return r;
 }
 const finishedCount = c => pawns[c].filter(p => p.pos === DONE).length;
+// Mode équipes (2 contre 2) : Rouge + Jaune contre Vert + Bleu
+let teamMode = false, series = { n: 0, wins: {} };
+const TEAM = { RED: 0, YELLOW: 0, GREEN: 1, BLUE: 1 };
+const partnerOf = c => PLAYERS[(PLAYERS.indexOf(c) + 2) % 4];
+const sameTeam = (a, b) => teamMode && TEAM[a] === TEAM[b];
+const teamWon = c => finishedCount(c) === 4 && (!teamMode || finishedCount(partnerOf(c)) === 4);
+// Pions que le joueur du tour déplace : les siens, ou ceux de son partenaire s'il a déjà tout terminé
+const actor = () => { const c = ACTIVE[currentPlayerIndex]; return teamMode && finishedCount(c) === 4 ? partnerOf(c) : c; };
+const AVATARS = {}, AV_IMG = {};
 

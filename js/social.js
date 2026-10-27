@@ -15,7 +15,7 @@ const SAY_DELAY = 1500, BUBBLE_MS = 3200;           // délai minimum entre deux
 const AUTO_CHANCE = { six: .5, capture: .8 };       // probabilité d'une réaction automatique
 const loadJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
-const prefs = Object.assign({ auto: true, zen: false }, loadJSON('ludo_prefs', {}));
+const prefs = Object.assign({ auto: true, zen: false, sound: true }, loadJSON('ludo_prefs', {}));
 let customMsgs = loadJSON('ludo_custom', []);       // 10 messages privés, enregistrés sur l'appareil
 let bubbles = [], lastSay = 0;
 
@@ -37,7 +37,7 @@ function say(text, color) {
   else net.conn.send({ t: 'chat', x: text });
 }
 function trySay(text) {
-  if (!gameStarted || gameOver || Date.now() - lastSay < SAY_DELAY) return false;
+  if (!gameStarted || gameOver || (isOnline() && !net.myColor) || Date.now() - lastSay < SAY_DELAY) return false;
   lastSay = Date.now();
   say(text, isOnline() ? net.myColor : ACTIVE[currentPlayerIndex]);
   return true;
@@ -49,7 +49,7 @@ function relayChat(color, text) { // hôte : relaie le message d'un invité à t
 function showBubble(color, text) {
   if (prefs.zen && (!isOnline() || color !== net.myColor)) return; // mode zen : on masque les messages des autres
   bubbles = bubbles.filter(b => b.c !== color);
-  bubbles.push({ c: color, text, t0: Date.now() });
+  bubbles.push({ c: color, text, t0: Date.now() }); sfx('bubble');
 }
 function autoTaunt(kind, color) {
   if (simulating || !gameStarted || gameOver || !prefs.auto) return;
@@ -110,6 +110,7 @@ function saveCustom() {
 }
 function openTray() {
   document.getElementById('optAuto').checked = prefs.auto; document.getElementById('optZen').checked = prefs.zen;
+  document.getElementById('leaveVoice').style.display = voice.state ? 'inline-block' : 'none';
   document.getElementById('chatTray').style.display = 'flex';
 }
 function closeTray() { document.getElementById('chatTray').style.display = 'none'; }

@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e1e2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Jeu de Ludo Personnalisé</title>
 <link rel="stylesheet" href="css/style.css">
 
@@ -12,8 +16,8 @@
   <canvas id="ludoBoard" width="600" height="600"></canvas>
   <div id="panel">
     <div class="p-row">
-      <div id="turn"><span class="color-indicator" id="turnDot"></span><span>Tour de <b id="turnText">Rouge</b></span></div>
-      <div class="btns"><button id="chatBtn" onclick="openTray()">💬</button><button id="logBtn" onclick="document.getElementById('logPopup').style.display='flex'">📜 Journal</button></div>
+      <div id="turn"><span class="color-indicator" id="turnDot"></span><span>Tour de <b id="turnText">Rouge</b></span><span id="timerText"></span></div>
+      <div class="btns"><button id="chatBtn" onclick="openTray()">💬</button><button id="voiceBtn" onclick="toggleVoice()">🎙️</button><button id="soundBtn" onclick="toggleSound()">🔊</button><button onclick="openRules()">📖</button><button id="logBtn" onclick="document.getElementById('logPopup').style.display='flex'">📜</button></div>
     </div>
     <div id="tapHint">👆 Touchez l'écran pour lancer le dé</div>
     <div class="dice-pool" id="dicePool"></div>
@@ -26,10 +30,14 @@
   <div class="log-section" id="gameLog"><div class="log-entry">> Choisissez la version et les noms des joueurs pour commencer.</div></div>
 </div>
 
+<div id="netBanner"></div>
+<div id="rulesPopup" onclick="if(event.target===this)this.style.display='none'"><div class="rules-box" id="rulesBox"></div></div>
+
 <div id="chatTray" onclick="if(event.target===this)closeTray()">
   <div id="trayBox">
     <div class="tray-opts">
       <label><input type="checkbox" id="optAuto" onchange="savePrefs()"> Réactions automatiques</label>
+      <button id="leaveVoice" style="display:none;width:auto;padding:4px 10px" onclick="leaveVoice();closeTray()">Quitter l'appel vocal</button>
       <label><input type="checkbox" id="optZen" onchange="savePrefs()"> Mode zen (masquer les messages des autres)</label>
     </div>
     <h4>Messages pour tous</h4><div class="chips" id="stdMsgs"></div>
@@ -42,6 +50,11 @@
 <div id="setupModal" style="display:flex">
   <div id="setupBox">
     <h2>🎲 Nouvelle partie</h2>
+    <div id="resumeBox"><b id="resumeText"></b><div class="name-row" style="margin:8px 0 0"><button onclick="resumeGame()">↩️ Reprendre</button><button onclick="forgetSession()" style="background:#585b70;color:#cdd6f4">Oublier</button></div></div>
+    <h3>Mon pseudo</h3>
+    <div class="name-row"><input id="pseudo" maxlength="15" placeholder="Votre pseudo (gardé sur cet appareil)"></div>
+    <h3>Ma photo (facultatif)</h3>
+    <div class="name-row"><input type="file" id="avatarFile" accept="image/*" onchange="pickAvatar(this.files[0])" style="font-size:.8rem;flex:1"><img id="avatarPrev" alt="" style="display:none;width:40px;height:40px;border-radius:50%;object-fit:cover"><button id="avatarDel" style="display:none;width:auto;padding:4px 10px" onclick="removeAvatar()">✖</button></div>
     <h3>Mode de jeu</h3>
     <label class="opt"><input type="radio" name="mode" value="local" checked onchange="modeChanged()"><span><b>Local</b> : tout le monde sur le même écran</span></label>
     <label class="opt"><input type="radio" name="mode" value="host" onchange="modeChanged()"><span><b>En ligne : créer une salle</b> (vous recevez un code à donner à vos amis)</span></label>
@@ -49,21 +62,28 @@
     <div id="joinPart" style="display:none">
       <h3>Rejoindre</h3>
       <div class="name-row"><input id="joinCode" maxlength="8" placeholder="Code de la salle"></div>
-      <div class="name-row"><input id="joinName" maxlength="15" placeholder="Votre nom (facultatif)"></div>
+      <label class="opt"><input type="checkbox" id="joinSpec"><span>👁 Regarder seulement (spectateur)</span></label>
     </div>
     <div id="configPart">
       <h3>Version du jeu (à choisir ensemble)</h3>
       <label class="opt"><input type="radio" name="ver" value="1" checked><span><b>Version 1 : classique</b><br>Manger un adversaire est facultatif.</span></label>
       <label class="opt"><input type="radio" name="ver" value="2"><span><b>Version 2 : capture obligatoire</b><br>Si les dés permettent de manger un adversaire, le joueur est obligé de le faire (sauf si cela l'oblige à abandonner un dé).</span></label>
+      <h3>Série</h3>
+      <div class="name-row"><select id="serSel"><option value="0">Partie unique</option><option value="3">Meilleur de 3</option><option value="5">Meilleur de 5</option></select></div>
+      <h3>Minuteur de tour</h3>
+      <div class="name-row"><select id="timerSel"><option value="0">Aucun</option><option value="30">30 secondes</option><option value="60">60 secondes</option><option value="90">90 secondes</option></select></div>
       <h3>Joueurs (cochez ceux qui jouent) et noms facultatifs</h3><p style="font-size:.85rem;color:#a6adc8;margin-bottom:8px">À 2 : couleurs opposées (Rouge–Jaune ou Vert–Bleu). À 3 ou 4 : au choix.</p><h3 style="display:none"></h3>
     <div class="name-row"><input type="checkbox" id="act_RED" checked><span class="color-indicator" style="background:#e74c3c"></span><input id="name_RED" maxlength="15" placeholder="Rouge"></div>
     <div class="name-row"><input type="checkbox" id="act_GREEN" checked><span class="color-indicator" style="background:#2ecc71"></span><input id="name_GREEN" maxlength="15" placeholder="Vert"></div>
     <div class="name-row"><input type="checkbox" id="act_YELLOW" checked><span class="color-indicator" style="background:#f1c40f"></span><input id="name_YELLOW" maxlength="15" placeholder="Jaune"></div>
     <div class="name-row"><input type="checkbox" id="act_BLUE" checked><span class="color-indicator" style="background:#3498db"></span><input id="name_BLUE" maxlength="15" placeholder="Bleu"></div>
+      <label class="opt"><input type="checkbox" id="teamChk"><span><b>Mode équipes (2 contre 2)</b> : Rouge + Jaune contre Vert + Bleu, à 4 joueurs. On ne mange pas son partenaire.</span></label>
       <p class="warn">⚠️ Une fois la partie commencée, la version ne peut plus être changée jusqu'à la fin.</p>
     </div>
     <button id="setupBtn" onclick="startGame()">Commencer la partie</button>
     <div id="lobby" class="warn" style="display:none"></div>
+    <button onclick="openRules()" style="margin-top:10px;background:#585b70;color:#cdd6f4">📖 Règles du jeu</button>
+    <div id="installBox" class="hint" style="margin-top:10px">📲 Installer sur l'écran d'accueil : Android, menu ⋮ puis « Installer l'application » · iPhone, Partager puis « Sur l'écran d'accueil ».<button id="installBtn" onclick="installApp()" style="display:none;margin-top:6px">📲 Installer l'application</button></div>
   </div>
 </div>
 
@@ -71,7 +91,8 @@
   <div id="winBox">
     <h2>🎉 Félicitations ! 🎉</h2>
     <p id="winText"></p>
-    <button onclick="location.reload()">Nouvelle partie</button>
+    <button id="rematchBtn" onclick="askRematch()">🔁 Revanche</button>
+    <button onclick="location.reload()" style="margin-top:8px;background:#585b70;color:#cdd6f4">Quitter</button>
   </div>
 </div>
 
@@ -82,6 +103,14 @@
 <script src="js/rules.js"></script>
 <script src="js/net.js"></script>
 <script src="js/social.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/anim.js"></script>
+<script src="js/timer.js"></script>
+<script src="js/session.js"></script>
+<script src="js/rules-text.js"></script>
+<script src="js/avatar.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/match.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -21,6 +21,7 @@ function drawBoard() {
       ctx.strokeRect(x + 2, y + 2, grid - 4, grid - 4); ctx.setLineDash([]);
     });
     if (customName[c] && ACTIVE.includes(c)) drawBaseName(c);
+    if (ACTIVE.includes(c)) drawAvatar(c);
   });
 
   const starts = Object.fromEntries(PLAYERS.map(c => [START_INDEX[c], PCOL[c] + '55']));
@@ -46,6 +47,7 @@ function drawBoard() {
   });
 
   drawPawns();
+  drawMovingPawns();
   drawLion();
   drawBubbles();
 }
@@ -76,12 +78,20 @@ function drawLion() {
   ctx.restore();
 }
 
+function drawAvatar(c) {  // photo du joueur, en rond, à l'extrémité du bord de sa base
+  const im = AV_IMG[c];
+  if (!im || !im.complete || !im.naturalWidth) return;
+  const [ox, oy] = ORIGIN[c], x = (ox + .5) * grid, y = (oy + (oy === 0 ? .5 : 5.5)) * grid, r = 17;
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(im, x - r, y - r, 2 * r, 2 * r); ctx.restore();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+}
 function drawBaseName(c) {
   const [ox, oy] = ORIGIN[c], cx = (ox + 3) * grid, cy = (oy + (oy === 0 ? .5 : 5.5)) * grid;
   let fs = 20;
   ctx.font = `bold ${fs}px sans-serif`;
   const w = ctx.measureText(NAMES[c]).width;
-  if (w > 220) { fs = Math.floor(fs * 220 / w); ctx.font = `bold ${fs}px sans-serif`; }
+  const maxW = AV_IMG[c] ? 170 : 220;
+  if (w > maxW) { fs = Math.floor(fs * maxW / w); ctx.font = `bold ${fs}px sans-serif`; }
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
   ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(NAMES[c], cx, cy);
   ctx.fillStyle = '#fff'; ctx.fillText(NAMES[c], cx, cy);
@@ -90,13 +100,15 @@ function drawBaseName(c) {
 function movablePawns() {
   if (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor) return new Set();
   if (!isPilotingPhase || gameOver || currentDiceIndex >= accumulatedDice.length) return new Set();
-  return new Set(getAllowedMoves(ACTIVE[currentPlayerIndex]).map(m => m.pawn));
+  return new Set(getAllowedMoves(actor()).map(m => m.pawn));
 }
 
 function drawPawns() {
-  const hl = hlCache, groups = {};
+  const hl = hlCache, groups = {}, now = Date.now();
+  anims = anims.filter(a => now < a.t0 + a.dur);
+  const moving = new Set(anims.map(a => a.p));
   ACTIVE.forEach(c => pawns[c].forEach(p => {
-    if (p.pos === DONE) return;
+    if (p.pos === DONE || moving.has(p)) return;
     const [gx, gy, k] = cellOf(c, p);
     (groups[k] = groups[k] || []).push({ c, p, gx, gy });
   }));

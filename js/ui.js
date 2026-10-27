@@ -7,11 +7,14 @@ function updateUI() {
   const info = [];
   if (gameStarted) {
     info.push(version === 2 ? 'Version 2 : capture obligatoire' : 'Version 1 : classique');
+    if (teamMode) info.push('Équipes : ' + [0, 1].map(k => ACTIVE.filter(c => TEAM[c] === k).map(c => NAMES[c]).join('+')).join(' contre '));
+    if (series.n) info.push(`Série (meilleur de ${series.n}) : ` + scoreText());
     if (globalOpeningPhase) info.push(playerHasUnlockedSix[pc] ? 'Ouverture : 1 lancer' : 'Ouverture : 2 lancers');
     if (isOnline() && net.myColor) info.push('Vous jouez : ' + NAMES[net.myColor]);
+    else if (isOnline() && net.spec) info.push('👁 Spectateur');
   }
   document.getElementById('infoLine').innerText = info.join(' · ');
-  updateDicePoolUI(); updateRollBtn(); hlCache = movablePawns(); drawBoard();
+  updateDicePoolUI(); updateRollBtn(); hlCache = movablePawns(); drawBoard(); saveSession();
 }
 function updateDicePoolUI() {
   const pool = document.getElementById('dicePool');

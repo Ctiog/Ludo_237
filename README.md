@@ -8,7 +8,8 @@ Jeu de Ludo (règles du 237) en HTML/CSS/JavaScript pur, sans compilation. Hébe
 - `js/` (scripts classiques partageant le même espace global, chargés dans cet ordre) :
   `config.js` état et constantes · `board.js` dessin canvas · `ui.js` panneau d'infos ·
   `rules.js` règles, dés, captures, barrières, coups autorisés · `net.js` démarrage et jeu en ligne (PeerJS) ·
-  `social.js` messages, bulles, préférences · `main.js` initialisation
+  `social.js` messages, bulles, préférences · `audio.js` sons · `anim.js` animation des pions · `timer.js` minuteur de tour · `session.js` sauvegarde et reprise · `rules-text.js` page de règles · `avatar.js` photo du joueur · `voice.js` appel vocal · `match.js` score de série et revanche · `main.js` initialisation
+- `manifest.webmanifest`, `sw.js`, `icons/` : installation sur l'écran d'accueil et mode hors ligne (local)
 - `apps-script/Code.gs` : script Google (historique des parties + messages éditables)
 
 ## Principes
@@ -18,3 +19,11 @@ Jeu de Ludo (règles du 237) en HTML/CSS/JavaScript pur, sans compilation. Hébe
 
 ## Déploiement
 Envoyer tout le contenu de ce dossier à la racine du dépôt GitHub (Pages, branche `main`).
+
+## Fonctionnement en ligne
+- Chaque joueur a un identifiant d'appareil (`ludo_pid`). Après une coupure, l'hôte reconnaît l'identifiant, rend la place et renvoie l'état complet (`getState/setState` dans `session.js`).
+- L'état est sauvegardé dans `localStorage` (`ludo_save`) : l'hôte peut rouvrir la même salle après un rechargement.
+- Spectateurs : connexion `spec`, ils reçoivent les mêmes messages mais ne peuvent ni lancer ni jouer.
+- Pour publier une nouvelle version, changer `CACHE` dans `sw.js` si la liste des fichiers évolue.
+- Mode équipes : `TEAM`, `actor()` (config.js) et `teamMode` ; un joueur qui a fini joue les pions de son partenaire.
+- Appel vocal : audio WebRTC via PeerJS, l'hôte relaie la liste des participants (`voicelist`) ; le plus petit identifiant appelle l'autre.

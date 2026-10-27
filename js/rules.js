@@ -19,7 +19,7 @@ function hostRoll() {
   startRoll(r);
 }
 function startRoll(r) {
-  isRolling = true; rollSent = false; updateRollBtn();
+  isRolling = true; rollSent = false; updateRollBtn(); sfx('roll');
   const anim = setInterval(() => { dieShown = Math.floor(Math.random() * 6) + 1; }, 70);
   setTimeout(() => {
     clearInterval(anim); dieShown = r; isRolling = false;
@@ -29,7 +29,7 @@ function startRoll(r) {
     if (r === 6) {
       playerHasUnlockedSix[pc] = true;
       log(`C'est un 6 ! Relancez le dé.`);
-      autoTaunt('six', pc);
+      sfx('six'); autoTaunt('six', pc);
       updateUI();
     } else if (globalOpeningPhase && !playerHasUnlockedSix[pc] && currentAttemptInTurn === 0) {
       currentAttemptInTurn = 1;
@@ -45,12 +45,13 @@ function startPilotingPhase() {
 function processCurrentDiceInPool() {
   if (gameOver) return;
   if (currentDiceIndex >= accumulatedDice.length) { finishTurn(); return; }
-  const pc = ACTIVE[currentPlayerIndex], d = accumulatedDice[currentDiceIndex];
+  const pc = actor(), d = accumulatedDice[currentDiceIndex];
   updateUI();
   const raw = getValidMoves(pc, d);
   if (raw.length === 0) {
     log(`Aucun coup possible pour le dé [${d}] de ${NAMES[pc]}.`);
-    setTimeout(() => { currentDiceIndex++; processCurrentDiceInPool(); }, 1000);
+    skipPending = true;
+    setTimeout(() => { skipPending = false; currentDiceIndex++; processCurrentDiceInPool(); }, 1000);
   } else {
     if (getAllowedMoves(pc).length < raw.length)
       log(`⚠️ Certains coups sont interdits : ${version === 2 ? 'capture obligatoire, et ' : ''}un dé ne peut être abandonné que si aucun autre choix n'est possible.`);
@@ -65,7 +66,7 @@ function getValidMoves(color, steps) {
     if (p.pos === DONE || capturedPawnsThisTurn.includes(p.id)) return;
     if (p.inJailOf) { if (steps === 6) moves.push({ pawn: p, type: 'RELEASE_JAIL' }); return; }
     if (p.pos === -1) {
-      if (steps === 6 && !isBlockedByEnemyBarrier(START_INDEX[color], color)) moves.push({ pawn: p, type: 'EXIT_BASE' });
+      if (steps === 6 && !isBlockedByEnemyBarrier(START_INDEX[color], color) && !teammateAt(START_INDEX[color], color)) moves.push({ pawn: p, type: 'EXIT_BASE' });
       return;
     }
     const t = p.pos + steps;
@@ -79,23 +80,25 @@ function isBlockedByEnemyBarrier(g, myColor) {
 }
 // Une barrière bloque le passage de tous (adversaires ET pions de la même couleur).
 // Un pion de la même couleur peut seulement s'y poser (la barrière monte de niveau).
+const teammateAt = (g, color) => pawnsAt(g).some(x => x.c !== color && sameTeam(x.c, color));
 function canPawnMovePath(color, startPos, steps) {
   for (let i = 1; i <= steps; i++) {
     const n = startPos + i;
     if (n > LAST_LOOP) break;
     const at = pawnsAt((START_INDEX[color] + n) % 52);
     if (at.length >= 2 && !(i === steps && at[0].c === color)) return false;
+    if (i === steps && teammateAt((START_INDEX[color] + n) % 52, color)) return false;   // on ne se pose pas sur son partenaire
   }
   return true;
 }
 
 canvas.addEventListener('click', e => {
-  if (!isPilotingPhase || isRolling || gameOver || currentDiceIndex >= accumulatedDice.length) return;
+  if (!isPilotingPhase || isRolling || busy || gameOver || currentDiceIndex >= accumulatedDice.length) return;
   const rect = canvas.getBoundingClientRect();
   const cx = (e.clientX - rect.left) * canvas.width / rect.width;
   const cy = (e.clientY - rect.top) * canvas.height / rect.height;
-  const pc = ACTIVE[currentPlayerIndex];
-  if (isOnline() && pc !== net.myColor) return;
+  const pc = actor();
+  if (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor) return;
   let sel = null, best = 999;
   getAllowedMoves(pc).forEach(m => {
     const c = getPawnCoordinates(pc, m.pawn), d = Math.hypot(c.x - cx, c.y - cy);
@@ -131,11 +134,16 @@ function applyMove(color, move) {
 }
 
 function executeMove(color, move) {
+  const before = PLAYERS.map(c => pawns[c].map(p => [p.pos, p.inJailOf]));
   applyMove(color, move);
-  drawBoard();
-  if (finishedCount(color) === 4) { endGame(color); return; }
-  currentDiceIndex++;
-  processCurrentDiceInPool();
+  const d = animateChanges(before);
+  busy = true; hlCache = new Set(); drawBoard();
+  setTimeout(() => {
+    busy = false;
+    if (teamWon(color)) { endGame(color); return; }
+    currentDiceIndex++;
+    processCurrentDiceInPool();
+  }, d + 80);
 }
 
 // ---- Coups autorisés : on doit jouer le maximum de dés (et, en version 2, manger si possible)
@@ -186,7 +194,7 @@ function getAllowedMoves(color) {
 function checkCapture(attacker, g) {
   let hit = false;
   pawnsAt(g).forEach(({ c, p }) => {
-    if (c !== attacker) {
+    if (c !== attacker && !sameTeam(c, attacker)) {
       p.pos = -1; p.inJailOf = attacker; hit = true;
       log(`⚔️ ${NAMES[attacker]} a capturé un pion de ${NAMES[c]} (envoyé en prison).`);
     }
@@ -198,15 +206,20 @@ function finishTurn() {
   currentAttemptInTurn = 0; accumulatedDice = []; isPilotingPhase = false; capturedPawnsThisTurn = [];
   currentPlayerIndex = (currentPlayerIndex + 1) % ACTIVE.length;
   updateRollBtn();
-  if (isOnline() && ACTIVE[currentPlayerIndex] === net.myColor && navigator.vibrate) navigator.vibrate(200);
+  if (isOnline() && ACTIVE[currentPlayerIndex] === net.myColor) { sfx('ding'); if (navigator.vibrate) navigator.vibrate(200); }
   log(`C'est au tour de ${NAMES[ACTIVE[currentPlayerIndex]]}.`);
   updateUI();
 }
 
 function endGame(color) {
-  gameOver = true; sendStat('terminée', NAMES[color]);
-  log(`🏆 ${NAMES[color]} a gagné la partie !`);
-  document.getElementById('winText').innerHTML = `Le joueur <b style="color:${PCOL[color]}">${esc(NAMES[color])}</b> remporte la partie !`;
+  gameOver = true; sendStat('terminée', teamLabel(color)); sfx('win'); clearSave();
+  const k = winKey(color);
+  series.wins[k] = (series.wins[k] || 0) + 1;
+  seriesOver = series.n > 0 && series.wins[k] >= Math.ceil(series.n / 2);
+  log(`🏆 ${teamLabel(color)} a gagné ${seriesOver ? 'la série' : 'la partie'} !`);
+  document.getElementById('winText').innerHTML = `${teamMode ? "L'équipe" : 'Le joueur'} <b style="color:${PCOL[color]}">${esc(teamLabel(color))}</b> remporte ${seriesOver ? 'la série' : 'la partie'} !` + scoreHtml();
+  const rb = document.getElementById('rematchBtn');
+  rb.innerText = seriesOver ? '🔁 Nouvelle série' : '🔁 Revanche'; rb.style.display = net.spec ? 'none' : 'block';
   document.getElementById('winModal').style.display = 'flex';
   updateUI();
 }
