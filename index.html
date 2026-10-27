@@ -130,7 +130,7 @@ let currentAttemptInTurn = 0, accumulatedDice = [], currentDiceIndex = 0, isPilo
 let capturedPawnsThisTurn = [];
 let gameStarted = false, version = 1, simulating = false;
 // Historique des parties : collez ici l'adresse de votre Google Sheet (voir les explications). Vide = désactivé.
-const STATS_URL = '';
+const STATS_URL = 'https://script.google.com/macros/s/AKfycbxa4e47FwcsYbdfSmCjes_v_ZbtLlkjPOTNTmkczx8lgbHESmiPtgxYFtGqCQfMkqsF/exec';
 let gameStartTime = 0;
 function sendStat(etat, gagnant) {
   if (!STATS_URL || (isOnline() && !isHost())) return;
