@@ -6,33 +6,35 @@
 <title>Jeu de Ludo Personnalisé</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
-body{background:#1e1e2e;color:#cdd6f4;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}
-h1{margin-bottom:15px;color:#f5e0dc;text-shadow:0 2px 4px rgba(0,0,0,.5)}
-.game-container{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;align-items:flex-start;max-width:1200px;width:100%}
-.board-wrapper{box-shadow:0 10px 30px rgba(0,0,0,.5);border-radius:12px;overflow:hidden;background:#000;max-width:100%}
-canvas{display:block;background:#fff;max-width:100%;height:auto}
-.controls-panel{flex:1;min-width:320px;max-width:450px;background:#313244;padding:20px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:15px}
-.card{background:#181825;padding:15px;border-radius:8px}
-#statusCard{border-left:6px solid #89b4fa}
-.card h2{font-size:1.1rem;margin-bottom:5px;color:#a6adc8}
-.current-turn{font-size:1.4rem;font-weight:bold;display:flex;align-items:center;gap:10px}
-.color-indicator{width:22px;height:22px;border-radius:50%;display:inline-block;border:2px solid #fff}
-.phase-badge{background:#f9e2af;color:#11111b;font-size:.8rem;padding:4px 10px;border-radius:12px;display:inline-block;margin-top:6px;font-weight:bold}
-.dice-section{display:flex;flex-direction:column;align-items:center;gap:12px}
-.dice{width:60px;height:60px;background:#fff;color:#11111b;font-size:2rem;font-weight:bold;display:flex;justify-content:center;align-items:center;border-radius:10px;box-shadow:inset 0 0 5px rgba(0,0,0,.2),0 4px 8px rgba(0,0,0,.3)}
-.dice.rolling{animation:spin .4s ease-in-out}
-@keyframes spin{0%{transform:rotate(0) scale(.8)}50%{transform:rotate(180deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
-.dice-pool{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.dice-chip{background:#89b4fa;color:#11111b;font-weight:bold;padding:6px 12px;border-radius:15px;font-size:.9rem}
-.dice-chip.active{background:#a6e3a1;border:2px solid #fff;box-shadow:0 0 8px #a6e3a1}
+:root{--vh:100vh;--s:min(100vw,calc(var(--vh) - 150px))}
+@supports (height:100dvh){:root{--vh:100dvh}}
+body{background:#1e1e2e;color:#cdd6f4;min-height:var(--vh);display:flex;justify-content:center;align-items:center;touch-action:manipulation}
+#app{display:flex;flex-direction:column;align-items:center}
+canvas{display:block;background:#fff;width:var(--s);height:var(--s)}
+#panel{width:var(--s);background:#313244;padding:8px 12px;display:flex;flex-direction:column;gap:6px}
+@media (orientation:landscape){
+  :root{--s:min(var(--vh),calc(100vw - 250px))}
+  #app{flex-direction:row;gap:12px}
+  #panel{width:230px;height:var(--s);justify-content:center;border-radius:10px;overflow-y:auto;gap:10px}
+}
+.p-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#turn{font-size:1.15rem;display:flex;align-items:center;gap:8px}
+.color-indicator{width:20px;height:20px;border-radius:50%;display:inline-block;border:2px solid #fff;flex:none}
+.dice-pool{display:flex;gap:6px;flex-wrap:wrap}
+.dice-pool:empty{display:none}
+.dice-chip{background:#89b4fa;color:#11111b;font-weight:bold;padding:3px 10px;border-radius:12px;font-size:.95rem}
+.dice-chip.active{background:#a6e3a1;border:2px solid #fff}
 .dice-chip.used{background:#585b70;color:#a6adc8;text-decoration:line-through}
+#tapHint{display:none;color:#a6e3a1;font-weight:bold;font-size:.95rem;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.4}}
+#statusLine{font-size:.85rem;min-height:2.4em;color:#cdd6f4}
+#infoLine{font-size:.75rem;color:#a6adc8}
 button{background:#89b4fa;color:#11111b;border:none;padding:12px 24px;font-size:1rem;font-weight:bold;border-radius:8px;cursor:pointer;width:100%}
 button:hover:not(:disabled){background:#b4befe}
 button:disabled{background:#585b70;color:#7f849c;cursor:not-allowed}
-.jail-section h3{font-size:1rem;margin-bottom:10px;color:#f38ba8}
-.jail-list{list-style:none;font-size:.9rem}
-.jail-item{background:#313244;padding:6px 10px;border-radius:6px;margin-bottom:6px}
-.log-section{background:#181825;padding:12px;border-radius:8px;height:200px;overflow-y:auto;font-family:monospace;font-size:.85rem}
+#logBtn{width:auto;padding:6px 12px;font-size:.85rem;flex:none}
+#logPopup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);justify-content:center;align-items:center;z-index:9}
+.log-section{background:#181825;padding:12px;border-radius:10px;width:92%;max-width:520px;height:60vh;overflow-y:auto;font-family:monospace;font-size:.85rem}
 .log-entry{margin-bottom:4px;border-bottom:1px solid #313244;padding-bottom:2px}
 #winModal,#setupModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);justify-content:center;align-items:center;z-index:10}
 #winBox{background:#313244;padding:40px 50px;border-radius:16px;text-align:center;border:6px solid #9b59b6;box-shadow:0 10px 40px rgba(0,0,0,.6);max-width:90%}
@@ -44,33 +46,27 @@ button:disabled{background:#585b70;color:#7f849c;cursor:not-allowed}
 .opt{display:flex;gap:10px;align-items:flex-start;background:#181825;padding:10px 12px;border-radius:8px;margin-bottom:8px;cursor:pointer;font-size:.92rem}
 .opt input{margin-top:4px}
 .name-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.name-row input{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #585b70;background:#181825;color:#cdd6f4;font-size:1rem}
+.name-row input[type=text],.name-row input:not([type]){flex:1;padding:8px 10px;border-radius:6px;border:1px solid #585b70;background:#181825;color:#cdd6f4;font-size:1rem}
 .warn{font-size:.85rem;color:#f9e2af;margin:12px 0}
 </style>
 </head>
 <body>
-<h1>🎮 Jeu de Ludo Personnalisé</h1>
-<div class="game-container">
-  <div class="board-wrapper"><canvas id="ludoBoard" width="600" height="600"></canvas></div>
-  <div class="controls-panel">
-    <div class="card" id="statusCard">
-      <h2>Tour actuel</h2>
-      <div class="current-turn"><span class="color-indicator" id="turnIndicator"></span><span id="turnText">Rouge</span></div>
-      <div id="phaseBadge" class="phase-badge"></div>
-      <div id="versionBadge" class="phase-badge" style="background:#cba6f7;display:none"></div>
-      <div id="meBadge" class="phase-badge" style="background:#a6e3a1;display:none"></div>
+<div id="app">
+  <canvas id="ludoBoard" width="600" height="600"></canvas>
+  <div id="panel">
+    <div class="p-row">
+      <div id="turn"><span class="color-indicator" id="turnDot"></span><span>Tour de <b id="turnText">Rouge</b></span></div>
+      <button id="logBtn" onclick="document.getElementById('logPopup').style.display='flex'">📜 Journal</button>
     </div>
-    <div class="card dice-section">
-      <div class="dice" id="diceValue">-</div>
-      <div class="dice-pool" id="dicePool"></div>
-      <button id="rollBtn" onclick="rollDice()" disabled>Lancer le dé</button>
-    </div>
-    <div class="card jail-section">
-      <h3>🚨 Prisonniers retenus</h3>
-      <ul class="jail-list" id="jailList"><li>Aucun prisonnier</li></ul>
-    </div>
-    <div class="log-section" id="gameLog"><div class="log-entry">> Choisissez la version et les noms des joueurs pour commencer.</div></div>
+    <div id="tapHint">👆 Touchez l'écran pour lancer le dé</div>
+    <div class="dice-pool" id="dicePool"></div>
+    <div id="statusLine"></div>
+    <div id="infoLine"></div>
   </div>
+</div>
+
+<div id="logPopup" onclick="if(event.target===this)this.style.display='none'">
+  <div class="log-section" id="gameLog"><div class="log-entry">> Choisissez la version et les noms des joueurs pour commencer.</div></div>
 </div>
 
 <div id="setupModal" style="display:flex">
@@ -142,6 +138,7 @@ function sendStat(etat, gagnant) {
   } catch (e) {}
 }
 let ACTIVE = PLAYERS.slice();
+let hlCache = new Set(), dieShown = null, rollSent = false;
 const customName = {};
 const net = { mode: 'local', peer: null, conn: null, conns: [], myColor: null, code: '' };
 const isOnline = () => net.mode !== 'local';
@@ -234,9 +231,9 @@ function drawBoard() {
   // Centre lila + couronne + pions arrivés
   ctx.fillStyle = PURPLE; ctx.fillRect(6 * grid, 6 * grid, 3 * grid, 3 * grid);
   ctx.strokeStyle = BORDER; ctx.strokeRect(6 * grid, 6 * grid, 3 * grid, 3 * grid);
+  drawDie();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '30px serif'; ctx.fillStyle = '#fff'; ctx.fillText('👑', 7.5 * grid, 7.5 * grid + 2);
-  const spots = { RED: [6.5, 7.5], GREEN: [7.5, 6.5], YELLOW: [8.5, 7.5], BLUE: [7.5, 8.5] };
+  const spots = { RED: [6.35, 6.35], GREEN: [8.65, 6.35], YELLOW: [8.65, 8.65], BLUE: [6.35, 8.65] };
   PLAYERS.forEach(c => {
     const n = finishedCount(c);
     if (!n) return;
@@ -247,6 +244,33 @@ function drawBoard() {
   });
 
   drawPawns();
+  drawLion();
+}
+
+function drawDie() {
+  const cx = 7.5 * grid, cy = 7.5 * grid, d = 1.5 * grid;
+  ctx.fillStyle = '#fff'; ctx.lineWidth = canRollNow() ? 5 : 2; ctx.strokeStyle = canRollNow() ? '#ffeb3b' : '#222';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(cx - d / 2, cy - d / 2, d, d, 9); else ctx.rect(cx - d / 2, cy - d / 2, d, d);
+  ctx.fill(); ctx.stroke();
+  if (!dieShown) { ctx.font = '30px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText('👑', cx, cy + 2); return; }
+  const o = d * .25, P = { 1: [[0,0]], 2: [[-1,-1],[1,1]], 3: [[-1,-1],[0,0],[1,1]], 4: [[-1,-1],[1,-1],[-1,1],[1,1]],
+    5: [[-1,-1],[1,-1],[0,0],[-1,1],[1,1]], 6: [[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]] };
+  ctx.fillStyle = '#111';
+  P[dieShown].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(cx + a * o, cy + b * o, d * .075, 0, Math.PI * 2); ctx.fill(); });
+}
+// Tête de lion qui se balance sur le côté d'entrée de la base du joueur dont c'est le tour
+function drawLion() {
+  if (!gameStarted || gameOver) return;
+  const c = ACTIVE[currentPlayerIndex], [ox, oy] = ORIGIN[c];
+  // Côté de la base où se trouve l'entrée (case de départ) de chaque couleur
+  const side = { RED: [3, 5.5], GREEN: [.5, 3], YELLOW: [3, .5], BLUE: [5.5, 3] }[c];
+  const x = (ox + side[0]) * grid, y = (oy + side[1]) * grid;
+  ctx.save(); ctx.translate(x, y);
+  ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
+  ctx.rotate(Math.sin(Date.now() / 250) * 0.45);
+  ctx.font = '28px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText('🦁', 0, 2);
+  ctx.restore();
 }
 
 function drawBaseName(c) {
@@ -267,7 +291,7 @@ function movablePawns() {
 }
 
 function drawPawns() {
-  const hl = movablePawns(), groups = {};
+  const hl = hlCache, groups = {};
   ACTIVE.forEach(c => pawns[c].forEach(p => {
     if (p.pos === DONE) return;
     const [gx, gy, k] = cellOf(c, p);
@@ -300,21 +324,16 @@ function drawPawns() {
 // ---------- Interface ----------
 function updateUI() {
   const pc = ACTIVE[currentPlayerIndex];
-  document.getElementById('turnIndicator').style.backgroundColor = PCOL[pc];
+  document.getElementById('turnDot').style.backgroundColor = PCOL[pc];
   document.getElementById('turnText').innerText = NAMES[pc];
-  document.getElementById('statusCard').style.borderLeftColor = PCOL[pc];
-  const badge = document.getElementById('phaseBadge');
-  if (globalOpeningPhase) {
-    badge.style.display = 'inline-block';
-    badge.innerText = playerHasUnlockedSix[pc] ? "Phase d'ouverture : 1 seul lancer (déjà fait un 6)" : "Phase d'ouverture : 2 lancers autorisés";
-  } else badge.style.display = 'none';
-  const vb = document.getElementById('versionBadge');
-  vb.style.display = gameStarted ? 'inline-block' : 'none';
-  vb.innerText = version === 2 ? 'Version 2 : capture obligatoire' : 'Version 1 : classique';
-  const mb = document.getElementById('meBadge');
-  mb.style.display = gameStarted && isOnline() ? 'inline-block' : 'none';
-  if (net.myColor) mb.innerText = 'Vous jouez : ' + NAMES[net.myColor];
-  updateDicePoolUI(); updateJailUI(); drawBoard();
+  const info = [];
+  if (gameStarted) {
+    info.push(version === 2 ? 'Version 2 : capture obligatoire' : 'Version 1 : classique');
+    if (globalOpeningPhase) info.push(playerHasUnlockedSix[pc] ? 'Ouverture : 1 lancer' : 'Ouverture : 2 lancers');
+    if (isOnline() && net.myColor) info.push('Vous jouez : ' + NAMES[net.myColor]);
+  }
+  document.getElementById('infoLine').innerText = info.join(' · ');
+  updateDicePoolUI(); updateRollBtn(); hlCache = movablePawns(); drawBoard();
 }
 function updateDicePoolUI() {
   const pool = document.getElementById('dicePool');
@@ -324,22 +343,13 @@ function updateDicePoolUI() {
     let s = '';
     if (isPilotingPhase) s = idx < currentDiceIndex ? ' used' : (idx === currentDiceIndex ? ' active' : '');
     chip.className = 'dice-chip' + s;
-    chip.innerText = `Dé #${idx + 1}: ${val}`;
+    chip.innerText = val;
     pool.appendChild(chip);
   });
 }
-function updateJailUI() {
-  const lines = [];
-  PLAYERS.forEach(a => {
-    const by = {};
-    PLAYERS.forEach(v => pawns[v].forEach(p => { if (p.inJailOf === a) by[v] = (by[v] || 0) + 1; }));
-    const t = Object.entries(by).map(([v, n]) => `${n} ${esc(NAMES[v])}`).join(', ');
-    if (t) lines.push(`<li class="jail-item"><b>${esc(NAMES[a])}</b> retient : ${t}</li>`);
-  });
-  document.getElementById('jailList').innerHTML = lines.join('') || '<li>Aucun prisonnier</li>';
-}
 function log(msg) {
   if (simulating) return;
+  document.getElementById('statusLine').innerText = msg;
   const box = document.getElementById('gameLog');
   const e = document.createElement('div');
   e.className = 'log-entry'; e.innerText = '> ' + msg;
@@ -347,13 +357,17 @@ function log(msg) {
 }
 
 // ---------- Dés ----------
-function updateRollBtn() {
-  document.getElementById('rollBtn').disabled = !gameStarted || gameOver || (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor);
+function canRollNow() {
+  return gameStarted && !gameOver && !isRolling && !isPilotingPhase && (!isOnline() || ACTIVE[currentPlayerIndex] === net.myColor);
 }
+function updateRollBtn() { document.getElementById('tapHint').style.display = canRollNow() ? 'block' : 'none'; }
 function rollDice() {
-  if (!gameStarted || isRolling || isPilotingPhase || gameOver) return;
-  if (isOnline() && ACTIVE[currentPlayerIndex] !== net.myColor) return;
-  if (isOnline() && !isHost()) { net.conn.send({ t: 'roll' }); document.getElementById('rollBtn').disabled = true; return; }
+  if (!canRollNow()) return;
+  if (isOnline() && !isHost()) {
+    if (rollSent) return;
+    rollSent = true; setTimeout(() => { rollSent = false; }, 2500);
+    net.conn.send({ t: 'roll' }); return;
+  }
   hostRoll();
 }
 function hostRoll() {
@@ -362,24 +376,23 @@ function hostRoll() {
   startRoll(r);
 }
 function startRoll(r) {
-  isRolling = true;
-  const diceEl = document.getElementById('diceValue');
-  document.getElementById('rollBtn').disabled = true; diceEl.classList.add('rolling');
+  isRolling = true; rollSent = false; updateRollBtn();
+  const anim = setInterval(() => { dieShown = Math.floor(Math.random() * 6) + 1; }, 70);
   setTimeout(() => {
-    diceEl.innerText = r; diceEl.classList.remove('rolling'); isRolling = false;
+    clearInterval(anim); dieShown = r; isRolling = false;
     const pc = ACTIVE[currentPlayerIndex];
     log(`${NAMES[pc]} a obtenu un ${r}.`);
     accumulatedDice.push(r);
     if (r === 6) {
       playerHasUnlockedSix[pc] = true;
       log(`C'est un 6 ! Relancez le dé.`);
-      updateUI(); updateRollBtn();
+      updateUI();
     } else if (globalOpeningPhase && !playerHasUnlockedSix[pc] && currentAttemptInTurn === 0) {
       currentAttemptInTurn = 1;
       log(`2ème lancer de la phase d'ouverture pour ${NAMES[pc]}.`);
-      updateUI(); updateRollBtn();
+      updateUI();
     } else startPilotingPhase();
-  }, 350);
+  }, 450);
 }
 function startPilotingPhase() {
   isPilotingPhase = true; currentDiceIndex = 0; capturedPawnsThisTurn = [];
@@ -653,14 +666,13 @@ function finishTurn() {
   currentAttemptInTurn = 0; accumulatedDice = []; isPilotingPhase = false; capturedPawnsThisTurn = [];
   currentPlayerIndex = (currentPlayerIndex + 1) % ACTIVE.length;
   updateRollBtn();
-  document.getElementById('diceValue').innerText = '-';
+  if (isOnline() && ACTIVE[currentPlayerIndex] === net.myColor && navigator.vibrate) navigator.vibrate(200);
   log(`C'est au tour de ${NAMES[ACTIVE[currentPlayerIndex]]}.`);
   updateUI();
 }
 
 function endGame(color) {
   gameOver = true; sendStat('terminée', NAMES[color]);
-  document.getElementById('rollBtn').disabled = true;
   log(`🏆 ${NAMES[color]} a gagné la partie !`);
   document.getElementById('winText').innerHTML = `Le joueur <b style="color:${PCOL[color]}">${esc(NAMES[color])}</b> remporte la partie !`;
   document.getElementById('winModal').style.display = 'flex';
@@ -668,6 +680,12 @@ function endGame(color) {
 }
 
 updateUI();
+setInterval(() => { if (gameStarted && !gameOver) drawBoard(); }, 50);
+// Toucher n'importe où (hors boutons et fenêtres) lance le dé quand c'est possible
+document.addEventListener('click', e => {
+  if (e.target.closest('button, input, label, #setupModal, #winModal, #logPopup')) return;
+  rollDice();
+}, true);
 </script>
 </body>
 </html>
