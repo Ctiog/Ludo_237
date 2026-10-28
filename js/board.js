@@ -4,7 +4,15 @@ function cell(gx, gy, fill) {
   ctx.fillStyle = fill; ctx.fillRect(gx * grid, gy * grid, grid, grid);
   ctx.strokeStyle = BORDER; ctx.lineWidth = 1; ctx.strokeRect(gx * grid, gy * grid, grid, grid);
 }
-function drawBoard() {
+let staticCv = null, staticDirty = true;
+function buildStatic() {   // le fond du plateau (cases, bases, noms) est dessiné une seule fois puis recopié
+  if (!staticCv) { staticCv = document.createElement('canvas'); staticCv.width = size; staticCv.height = size; }
+  const main = ctx;
+  ctx = staticCv.getContext('2d');
+  try { drawStatic(); } finally { ctx = main; }
+  staticDirty = false;
+}
+function drawStatic() {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
 
   PLAYERS.forEach(c => {
@@ -24,7 +32,8 @@ function drawBoard() {
     if (ACTIVE.includes(c)) drawAvatar(c);
   });
 
-  const starts = Object.fromEntries(PLAYERS.map(c => [START_INDEX[c], PCOL[c] + '55']));
+  const starts = {};
+  PLAYERS.forEach(c => { starts[START_INDEX[c]] = PCOL[c] + '55'; });
   MAIN_PATH.forEach(([gx, gy], i) => {
     cell(gx, gy, '#fff');
     if (starts[i]) { ctx.fillStyle = starts[i]; ctx.fillRect(gx * grid, gy * grid, grid, grid); ctx.strokeRect(gx * grid, gy * grid, grid, grid); }
@@ -34,6 +43,11 @@ function drawBoard() {
   // Centre lila + couronne + pions arrivés
   ctx.fillStyle = PURPLE; ctx.fillRect(6 * grid, 6 * grid, 3 * grid, 3 * grid);
   ctx.strokeStyle = BORDER; ctx.strokeRect(6 * grid, 6 * grid, 3 * grid, 3 * grid);
+}
+
+function drawBoard() {
+  if (staticDirty || !staticCv) buildStatic();
+  ctx.drawImage(staticCv, 0, 0);
   drawDie();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const spots = { RED: [6.35, 6.35], GREEN: [8.65, 6.35], YELLOW: [8.65, 8.65], BLUE: [6.35, 8.65] };
@@ -73,7 +87,7 @@ function drawLion() {
   const x = (ox + side[0]) * grid, y = (oy + side[1]) * grid;
   ctx.save(); ctx.translate(x, y);
   ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
-  ctx.rotate(Math.sin(Date.now() / 250) * 0.45);
+  ctx.rotate(prefs.lite ? 0 : Math.sin(Date.now() / 250) * 0.45);
   ctx.font = '28px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText('🦁', 0, 2);
   ctx.restore();
 }

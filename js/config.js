@@ -1,6 +1,6 @@
 // Configuration, état du jeu, constantes et fonctions utilitaires du plateau
 const canvas = document.getElementById('ludoBoard');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');
 const size = 600, grid = size / 15;
 
 const PLAYERS = ['RED', 'GREEN', 'YELLOW', 'BLUE'];
@@ -99,3 +99,18 @@ const teamWon = c => finishedCount(c) === 4 && (!teamMode || finishedCount(partn
 const actor = () => { const c = ACTIVE[currentPlayerIndex]; return teamMode && finishedCount(c) === 4 ? partnerOf(c) : c; };
 const AVATARS = {}, AV_IMG = {};
 
+
+// Appareils modestes : détectés automatiquement (réglable dans le panneau 💬 : « Mode économie »)
+const LOW_END = !!((navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || (navigator.deviceMemory && navigator.deviceMemory <= 2) || /Android [4-8][.;]/.test(navigator.userAgent || ''));
+
+// Réseau : serveurs STUN gratuits + serveur de relais TURN facultatif (utile sur les réseaux mobiles stricts, voir README)
+const TURN_URL = '';   // ex. https://MONAPP.metered.live/api/v1/turn/credentials?apiKey=XXXX
+let ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }];
+let iceReady = !TURN_URL;
+const peerOpts = () => ({ config: { iceServers: ICE }, debug: 0 });
+function loadIce(done) {
+  let finished = false;
+  const end = () => { if (!finished) { finished = true; iceReady = true; done(); } };
+  setTimeout(end, 4000);
+  fetch(TURN_URL).then(r => r.json()).then(l => { if (Array.isArray(l)) ICE = ICE.concat(l); }).catch(() => {}).then(end);
+}

@@ -38,6 +38,7 @@
     <div class="tray-opts">
       <label><input type="checkbox" id="optAuto" onchange="savePrefs()"> Réactions automatiques</label>
       <button id="leaveVoice" style="display:none;width:auto;padding:4px 10px" onclick="leaveVoice();closeTray()">Quitter l'appel vocal</button>
+      <label><input type="checkbox" id="optLite" onchange="savePrefs()"> Mode économie (animations réduites, pour les téléphones lents)</label>
       <label><input type="checkbox" id="optZen" onchange="savePrefs()"> Mode zen (masquer les messages des autres)</label>
     </div>
     <h4>Messages pour tous</h4><div class="chips" id="stdMsgs"></div>
@@ -96,21 +97,13 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/board.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/rules.js"></script>
-<script src="js/net.js"></script>
-<script src="js/social.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/anim.js"></script>
-<script src="js/timer.js"></script>
-<script src="js/session.js"></script>
-<script src="js/rules-text.js"></script>
-<script src="js/avatar.js"></script>
-<script src="js/voice.js"></script>
-<script src="js/match.js"></script>
-<script src="js/main.js"></script>
+<div id="oldMsg" style="display:none;position:fixed;top:0;left:0;right:0;z-index:50;background:#f9e2af;color:#11111b;padding:12px;font-size:15px;text-align:center">⚠️ Ce navigateur est trop ancien pour le jeu. Mettez à jour <b>Chrome</b> et <b>Android System WebView</b> dans le Play Store, ou ouvrez le lien avec Chrome.</div>
+<script>
+/* PeerJS : fichier local d'abord (rapide, utilisable hors ligne), puis deux copies sur internet si absent */
+(function(){var u=['js/peerjs.min.js','https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js','https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'],i=0;
+function n(){if(typeof Peer!=='undefined'||i>=u.length)return;var s=document.createElement('script');s.src=u[i++];s.onerror=n;document.head.appendChild(s);}n();})();
+</script>
+<script src="js/ludo.bundle.js"></script>
+<script>setTimeout(function(){if(!window.__ludoReady){var m=document.getElementById('oldMsg');if(m)m.style.display='block';}},4000);</script>
 </body>
 </html>

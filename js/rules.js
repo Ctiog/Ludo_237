@@ -161,8 +161,9 @@ function combine(cap, sub) {
 function moveKey(m) {
   return m.type + (m.type === 'MOVE' ? m.pawn.pos : m.type === 'RELEASE_JAIL' ? m.pawn.inJailOf : '');
 }
+let budget = 0;
 function bestScore(color, idx) {
-  if (idx >= accumulatedDice.length) return 0;
+  if (idx >= accumulatedDice.length || --budget < 0) return 0;
   const seen = new Set();
   const moves = getValidMoves(color, accumulatedDice[idx]).filter(m => { const k = moveKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
   if (!moves.length) return bestScore(color, idx + 1);
@@ -179,6 +180,7 @@ function getAllowedMoves(color) {
   const raw = getValidMoves(color, accumulatedDice[currentDiceIndex]);
   if (raw.length < 2) return raw;
   let scored;
+  budget = prefs.lite ? 1500 : 6000;
   simulating = true;
   try {
     scored = raw.map(m => {

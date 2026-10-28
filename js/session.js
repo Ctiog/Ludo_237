@@ -14,7 +14,7 @@ function setState(s) {
   PLAYERS.forEach((c, i) => pawns[c].forEach((p, j) => { p.pos = s.pawns[i][j][0]; p.inJailOf = s.pawns[i][j][1]; }));
   currentPlayerIndex = s.cur; accumulatedDice = s.dice; currentDiceIndex = s.di; isPilotingPhase = s.piloting; globalOpeningPhase = s.open;
   Object.assign(playerHasUnlockedSix, s.six); currentAttemptInTurn = s.att; capturedPawnsThisTurn = s.capt; dieShown = s.die; gameOver = s.over;
-  isRolling = false; busy = false; skipPending = false; anims = []; turnKey = ''; gameStarted = true;
+  isRolling = false; busy = false; skipPending = false; anims = []; turnKey = ''; gameStarted = true; staticDirty = true;
 }
 function afterResume() {
   document.getElementById('setupModal').style.display = 'none';

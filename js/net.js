@@ -28,7 +28,7 @@ function startGame() {
   beginGame();
 }
 function beginGame() {
-  gameStarted = true; currentPlayerIndex = 0; gameStartTime = Date.now();
+  gameStarted = true; currentPlayerIndex = 0; gameStartTime = Date.now(); staticDirty = true;
   document.getElementById('setupModal').style.display = 'none';
   document.getElementById('gameLog').innerHTML = '';
   log(`La partie commence (${version === 2 ? 'version 2 : capture obligatoire' : 'version 1 : classique'}) ! ${NAMES[ACTIVE[0]]} débute.`);
@@ -47,9 +47,10 @@ function hostRoom() {
   openHostPeer(false, 0);
 }
 function openHostPeer(resume, tries) {
+  if (!iceReady) { loadIce(() => openHostPeer(resume, tries)); return; }
   lobbyMsg(resume ? 'Réouverture de la salle…' : 'Connexion au serveur…');
   try { if (net.peer) net.peer.destroy(); } catch (e) {}
-  net.peer = new Peer('ludo-' + net.code);
+  net.peer = new Peer('ludo-' + net.code, peerOpts());
   net.peer.on('open', () => { if (resume) { afterResume(); log('🔄 Salle rouverte : les joueurs vont se reconnecter.'); } else showLobby(); });
   net.peer.on('disconnected', () => { try { net.peer.reconnect(); } catch (e) {} });
   net.peer.on('error', e => {
@@ -76,6 +77,7 @@ function sendSync(conn) {  // attend un moment calme (ni dé en cours, ni pion e
 }
 function onHostMsg(conn, m) {
   let o = net.conns.find(x => x.conn === conn);
+  if (m.t === 'ping') { try { conn.send({ t: 'pong' }); } catch (e) {} return; }
   if (m.t === 'join') {
     if (o) return;
     const back = m.pid && net.conns.find(x => x.pid === m.pid);   // joueur ou spectateur déjà connu : il reprend sa place
@@ -125,10 +127,11 @@ function joinRoom(spec) {
   connectGuest();
 }
 function connectGuest() {
-  net.peer = new Peer();
+  if (!iceReady) { loadIce(connectGuest); return; }
+  net.peer = new Peer(peerOpts());
   net.peer.on('open', () => {
     const conn = net.conn = net.peer.connect('ludo-' + net.code, { reliable: true });
-    conn.on('open', () => conn.send({ t: 'join', name: pseudoVal(), pid: MY_PID, spec: net.spec, avatar: myAvatar() }));
+    conn.on('open', () => conn.send({ t: 'join', name: pseudoVal(), pid: MY_PID, spec: net.spec, avatar: myAvatar() })); startBeat();
     conn.on('data', onGuestMsg);
     conn.on('close', onGuestLost);
   });
@@ -138,6 +141,15 @@ function connectGuest() {
     document.getElementById('setupBtn').disabled = false;
   });
 }
+function startBeat() {   // battement de coeur : détecte vite une coupure silencieuse (réseau mobile instable)
+  net.lastPong = Date.now();
+  if (net.beat) return;
+  net.beat = setInterval(() => {
+    if (!net.conn || net.mode !== 'join') return;
+    try { if (net.conn.open) net.conn.send({ t: 'ping' }); } catch (e) {}
+    if (Date.now() - net.lastPong > 20000) { net.lastPong = Date.now(); onGuestLost(); }
+  }, 5000);
+}
 function onGuestLost() {   // coupure : on retente toutes les 3 s, l'hôte renvoie alors l'état de la partie
   if (!net.code || (net.reconnecting && !gameStarted)) return;
   if (net.retryTimer) return;
@@ -145,6 +157,8 @@ function onGuestLost() {   // coupure : on retente toutes les 3 s, l'hôte renvo
   net.retryTimer = setTimeout(() => { net.retryTimer = null; try { net.peer.destroy(); } catch (e) {} connectGuest(); }, 3000);
 }
 function onGuestMsg(m) {
+  net.lastPong = Date.now();
+  if (m.t === 'pong') return;
   if (m.t === 'seat') { net.myColor = m.color; if (voice.state) { hookVoice(); announceVoice(true); } lobbyMsg(`Connecté ! Vous jouez ${esc(NAMES[m.color])}. En attente des autres joueurs…`); }
   else if (m.t === 'spec') { net.myColor = null; net.spec = true; lobbyMsg('👁 Vous regardez la partie en spectateur.'); }
   else if (m.t === 'full') { net.code = ''; banner(''); lobbyMsg('Cette salle est complète ou la partie est déjà commencée.'); document.getElementById('setupBtn').disabled = false; }

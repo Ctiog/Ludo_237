@@ -16,6 +16,7 @@ const AUTO_CHANCE = { six: .5, capture: .8 };       // probabilité d'une réact
 const loadJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const prefs = Object.assign({ auto: true, zen: false, sound: true }, loadJSON('ludo_prefs', {}));
+if (prefs.lite === undefined) prefs.lite = LOW_END;
 let customMsgs = loadJSON('ludo_custom', []);       // 10 messages privés, enregistrés sur l'appareil
 let bubbles = [], lastSay = 0;
 
@@ -109,12 +110,12 @@ function saveCustom() {
   document.getElementById('editBox').style.display = 'none'; renderMy();
 }
 function openTray() {
-  document.getElementById('optAuto').checked = prefs.auto; document.getElementById('optZen').checked = prefs.zen;
+  document.getElementById('optAuto').checked = prefs.auto; document.getElementById('optLite').checked = prefs.lite; document.getElementById('optZen').checked = prefs.zen;
   document.getElementById('leaveVoice').style.display = voice.state ? 'inline-block' : 'none';
   document.getElementById('chatTray').style.display = 'flex';
 }
 function closeTray() { document.getElementById('chatTray').style.display = 'none'; }
 function savePrefs() {
-  prefs.auto = document.getElementById('optAuto').checked; prefs.zen = document.getElementById('optZen').checked;
+  prefs.auto = document.getElementById('optAuto').checked; prefs.lite = document.getElementById('optLite').checked; prefs.zen = document.getElementById('optZen').checked;
   saveJSON('ludo_prefs', prefs);
 }

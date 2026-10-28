@@ -27,19 +27,19 @@ function onVoiceList(ids) {
   ids.forEach(id => { if (net.peer.id < id && !voice.calls[id]) voiceAttach(net.peer.call(id, voice.stream)); });  // le plus petit identifiant appelle
   Object.keys(voice.calls).forEach(id => { if (!ids.includes(id)) { voice.calls[id].close(); delete voice.calls[id]; } });
 }
-async function toggleVoice() {
+function toggleVoice() {
   if (!isOnline() || !net.myColor || !net.peer) { alert("L'appel vocal est réservé aux joueurs d'une partie en ligne."); return; }
   audioUnlock();
-  if (voice.state === 0) {
-    try { voice.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-    catch (e) { alert("Micro refusé ou indisponible : autorisez le micro dans votre navigateur."); return; }
-    voice.state = 1; hookVoice(); announceVoice(true);
-    log('🎧 Appel vocal activé : utilisez des écouteurs pour éviter l\'écho. Touchez 🎤 pour couper votre micro.');
-  } else {
+  if (voice.state !== 0) {
     voice.state = voice.state === 1 ? 2 : 1;
     voice.stream.getAudioTracks().forEach(t => { t.enabled = voice.state === 1; });
+    voiceBtnUpdate(); return;
   }
-  voiceBtnUpdate();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Cet appareil ne permet pas l'appel vocal."); return; }
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(stream => {
+    voice.stream = stream; voice.state = 1; hookVoice(); announceVoice(true); voiceBtnUpdate();
+    log('🎧 Appel vocal activé : utilisez des écouteurs pour éviter l\'écho. Touchez 🎤 pour couper votre micro.');
+  }).catch(() => alert('Micro refusé ou indisponible : autorisez le micro dans votre navigateur.'));
 }
 function leaveVoice() {
   if (!voice.state) return;
